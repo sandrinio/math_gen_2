@@ -37,8 +37,8 @@
 <script>
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI("YOUR_API_KEY"); // Replace with your actual API key
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // or another suitable model
+const genAI = new GoogleGenerativeAI("AIzaSyCv94OLfi4Plrpfvskmr44Le8-_VpRlAOI"); // Replace with your actual API key
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" }); // or another suitable model
 
 export default {
   data() {
@@ -64,18 +64,20 @@ export default {
       try {
         const result = await model.generateContent(prompt);
         const response = await result.response;
-        const text = response.text();
+        let text = response.text();
+
+        // Strip backticks and any extra formatting
+        text = text.replace(/```json|```/g, '').trim();
+
         this.problems = JSON.parse(text);
 
-        // Ensure we have 20 problems and the format is correct.  If not, retry or handle the error.
+        // Ensure we have 20 problems and the format is correct. If not, retry or handle the error.
         if (!Array.isArray(this.problems) || this.problems.length !== 20 || !this.problems.every(p => typeof p === 'object' && 'num1' in p && 'num2' in p && 'operation' in p && 'answer' in p)) {
           console.error("Invalid problems format from Gemini:", this.problems);
-          // You might want to retry or use a fallback mechanism here.
           this.problems = []; // Clear problems to avoid issues.
         }
       } catch (error) {
         console.error("Error generating problems:", error);
-        // Handle the error appropriately, e.g., display an error message to the user.
         this.problems = []; // Clear problems to avoid issues.
         this.quizStarted = false;
       }
