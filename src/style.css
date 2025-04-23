@@ -28,6 +28,8 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  background-color: #f9f9f9;
+  font-family: 'Arial', sans-serif;
 }
 
 h1 {
@@ -36,18 +38,19 @@ h1 {
 }
 
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
+  border-radius: 5px;
+  border: none;
+  padding: 10px 20px;
+  font-size: 16px;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: #4CAF50;
+  color: white;
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: background-color 0.3s ease;
 }
 button:hover {
-  border-color: #646cff;
+  background-color: #45a049;
 }
 button:focus,
 button:focus-visible {
@@ -56,6 +59,30 @@ button:focus-visible {
 
 .card {
   padding: 2em;
+}
+
+.problem {
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.results {
+  background-color: #e9e9e9;
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.results .correct {
+  color: green;
+  font-weight: bold;
+}
+
+.results .incorrect {
+  color: red;
+  font-weight: bold;
 }
 
 #app {
