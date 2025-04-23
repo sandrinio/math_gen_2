@@ -52,14 +52,42 @@ export default {
     },
     async generateProblems() {
       try {
-        const response = await fetch('/api/generateProblems');
-        const data = await response.json();
-        
+        const response = await fetch('/api/generateProblems', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            prompt: `Generate 20 math problems in JSON format. Each problem should include the following fields:
+            - num1: The first number (integer).
+            - num2: The second number (integer).
+            - operation: The operation as a string (+, -, *, or /).
+            - answer: The correct answer to the problem.
+
+            The response should be a JSON array of 20 objects, each containing the fields num1, num2, operation, and answer. Do not include any additional text or formatting outside the JSON array.`
+          })
+        });
+
+        console.log("Response status:", response.status);
+        console.log("Response headers:", response.headers);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const text = await response.text();
+        console.log("Response text:", text);
+
+        if (!text) {
+          throw new Error("Empty response from the server");
+        }
+
+        const data = JSON.parse(text);
+
         this.problems = data;
 
         // Ensure we have 20 problems and the format is correct. If not, retry or handle the error.
         if (!Array.isArray(this.problems) || this.problems.length !== 20 || !this.problems.every(p => typeof p === 'object' && 'num1' in p && 'num2' in p && 'operation' in p && 'answer' in p)) {
-
           console.error("Invalid problems format from Gemini:", this.problems);
           this.problems = []; // Clear problems to avoid issues.
         }
