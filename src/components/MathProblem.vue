@@ -1,65 +1,83 @@
-<template>
+--- a/src/components/MathProblem.vue
+++ b/src/components/MathProblem.vue
   <div class="math-problem">
-    <form @submit.prevent="checkAnswers">
-      <h2>Addition</h2>
-      <div class="problem-section" >
-        <div v-for="(problem, index) in problems.slice(0, 10)" :key="index" class="problem" >
-          {{ problem.num1 }} {{ problem.operation }} {{ problem.num2 }} =
-          <input type="number" v-model="userAnswers[index]" placeholder="?" />
-        </div>
-      </div>
-      <h2>Subtraction</h2>
-       <div class="problem-section">
-        <div v-for="(problem, index) in problems.slice(10)" :key="index + 10" class="problem" >
-          {{ problem.num1 }} {{ problem.operation }} {{ problem.num2 }} =
-          <input type="number" v-model="userAnswers[index + 10]" placeholder="?" />
-        </div>
-      </div>
-      <button type="submit">Submit</button>
-    </form>
-    <p v-if="results.length > 0">Answers checked!</p>
-    <div v-if="results.length > 0" class="results">
-      <h2>Results</h2>
-      <ul>
-        <li v-for="(result, index) in results" :key="index">
-          {{ problems[index].num1 }} {{ problems[index].operation }} {{ problems[index].num2 }} = {{ userAnswers[index] }}
-         <span v-if="result.correct" class="correct">✓</span>
-          <span v-else class="incorrect">✗</span>
-        </li>
-      </ul>
-      <p>Total Score: {{ results.filter(r => r.correct).length }} / 20</p>
+    <div v-if="!quizStarted" class="greeting">
+      <h1>Hello!</h1>
+      <p>Click the button below to start your math homework.</p>
+      <button @click="startQuiz">Start Homework</button>
     </div>
 
+    <div v-if="quizStarted">
+      <div class="problem-section">
+        <form @submit.prevent="checkAnswers">
+          <div v-for="(problem, index) in problems" :key="index" class="problem">
+            {{ problem.num1 }} {{ problem.operation }} {{ problem.num2 }} =
+            <input type="number" v-model="userAnswers[index]" placeholder="Your answer" />
+          </div>
+          <button type="submit">Submit</button>
+        </form>
+      </div>
+        <div v-if="submissionMessage" class="submission-message">
+          {{ submissionMessage }}
+        </div>
+        <div v-if="results.length > 0" class="results">
+            <h2>Results</h2>
+            <ul>
+              <li v-for="(result, index) in results" :key="index">
+              {{ problems[index].num1 }} {{ problems[index].operation }} {{ problems[index].num2 }} = {{ userAnswers[index] }}
+              <span v-if="result.correct" class="correct">✓ Correct!</span>
+              <span v-else class="incorrect">✗ Incorrect</span>
+            </li>
+          </ul>
+          <p>Total Score: {{ results.filter(r => r.correct).length }} / 20</p>
+      </div>
+    </div>
   </div>
-</template>
 
 <script>
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+const genAI = new GoogleGenerativeAI("YOUR_API_KEY"); // Replace with your actual API key
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // or another suitable model
+
 export default {
   data() {
     return {
+      quizStarted: false,
       problems: [],
       userAnswers: Array(20).fill(''),
       results: [],
+      submissionMessage: '',
     };
   },
-  mounted() {
-    this.generateProblems();
-  },
   methods: {
-    generateProblems() {
-      this.problems = [];
-      for (let i = 0; i < 10; i++) {
-        const num1 = Math.floor(Math.random() * 49) + 1;
-        const num2 = Math.floor(Math.random() * 49) + 1;
-        this.problems.push({ num1, num2, operation: '+', answer: num1 + num2 });
-      }
-      for (let i = 0; i < 10; i++) {
-        let num1, num2;
-        do {
-          num1 = Math.floor(Math.random() * 49) + 1;
-          num2 = Math.floor(Math.random() * 49) + 1;
-        } while (num1 - num2 === 0);
-        this.problems.push({ num1, num2, operation: '-', answer: num1 - num2 });
+    async startQuiz() {
+      this.quizStarted = true;
+      await this.generateProblems();
+    },
+    async generateProblems() {
+      const prompt = "Generate 10 addition problems and 10 subtraction problems for an 8-year-old. " +
+                     "Use numbers between 1 and 49. The answer for subtraction problems should not be 0. " +
+                     "Provide the problems as a JSON array where each object has the format: " +
+                     "{ num1: number, num2: number, operation: '+' | '-', answer: number }";
+
+      try {
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+        this.problems = JSON.parse(text);
+
+        // Ensure we have 20 problems and the format is correct.  If not, retry or handle the error.
+        if (!Array.isArray(this.problems) || this.problems.length !== 20 || !this.problems.every(p => typeof p === 'object' && 'num1' in p && 'num2' in p && 'operation' in p && 'answer' in p)) {
+          console.error("Invalid problems format from Gemini:", this.problems);
+          // You might want to retry or use a fallback mechanism here.
+          this.problems = []; // Clear problems to avoid issues.
+        }
+      } catch (error) {
+        console.error("Error generating problems:", error);
+        // Handle the error appropriately, e.g., display an error message to the user.
+        this.problems = []; // Clear problems to avoid issues.
+        this.quizStarted = false;
       }
     },
     checkAnswers() {
@@ -67,13 +85,56 @@ export default {
         const userAnswer = parseInt(this.userAnswers[index]) || 0;
         return { correct: userAnswer === problem.answer };
       });
+      this.submissionMessage = "Answers checked!";
     },
   },
 };
-
 </script>
 
 <style scoped>
+/* ... (your existing CSS styles) ... */
+
+.greeting {
+  text-align: center;
+  padding: 20px;
+}
+
+.greeting h1 {
+  font-size: 2.5em;
+  margin-bottom: 10px;
+}
+
+.greeting p {
+  font-size: 1.2em;
+  margin-bottom: 20px;
+}
+
+.greeting button {
+  /* Style the button to match your existing submit button */
+  background-color: #4CAF50;
+  border: none;
+  color: white;
+  padding: 15px 32px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 10px 2px;
+  cursor: pointer;
+  border-radius: 5px;
+  transition: background-color 0.3s ease;
+}
+
+.greeting button:hover {
+  background-color: #45a049;
+}
+
+.submission-message {
+  text-align: center;
+  font-size: 1.1em;
+  margin-top: 10px;
+  color: #333;
+}
 .math-problem {
   font-family: 'Arial', sans-serif; /* A more playful font */
   max-width: 600px;
