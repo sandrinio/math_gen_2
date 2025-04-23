@@ -35,11 +35,6 @@
 </template>
 
 <script>
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const genAI = new GoogleGenerativeAI("AIzaSyCv94OLfi4Plrpfvskmr44Le8-_VpRlAOI"); // Replace with your actual API key
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" }); // or another suitable model
-
 export default {
   data() {
     return {
@@ -56,23 +51,15 @@ export default {
       await this.generateProblems();
     },
     async generateProblems() {
-      const prompt = "Generate 10 addition problems and 10 subtraction problems for an 8-year-old. " +
-                     "Use numbers between 1 and 49. The answer for subtraction problems should not be 0. " +
-                     "Provide the problems as a JSON array where each object has the format: " +
-                     "{ num1: number, num2: number, operation: '+' | '-', answer: number }";
-
       try {
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        let text = response.text();
-
-        // Strip backticks and any extra formatting
-        text = text.replace(/```json|```/g, '').trim();
-
-        this.problems = JSON.parse(text);
+        const response = await fetch('/api/generateProblems');
+        const data = await response.json();
+        
+        this.problems = data;
 
         // Ensure we have 20 problems and the format is correct. If not, retry or handle the error.
         if (!Array.isArray(this.problems) || this.problems.length !== 20 || !this.problems.every(p => typeof p === 'object' && 'num1' in p && 'num2' in p && 'operation' in p && 'answer' in p)) {
+
           console.error("Invalid problems format from Gemini:", this.problems);
           this.problems = []; // Clear problems to avoid issues.
         }
