@@ -1,5 +1,4 @@
---- a/src/components/MathProblem.vue
-++ b/src/components/MathProblem.vue
+<template>
   <div class="math-problem">
     <div v-if="!quizStarted" class="greeting">
       <h1>Hello!</h1>
@@ -17,22 +16,23 @@
           <button type="submit">Submit</button>
         </form>
       </div>
-        <div v-if="submissionMessage" class="submission-message">
-          {{ submissionMessage }}
-        </div>
-        <div v-if="results.length > 0" class="results">
-            <h2>Results</h2>
-            <ul>
-              <li v-for="(result, index) in results" :key="index">
-              {{ problems[index].num1 }} {{ problems[index].operation }} {{ problems[index].num2 }} = {{ userAnswers[index] }}
-              <span v-if="result.correct" class="correct">✓ Correct!</span>
-              <span v-else class="incorrect">✗ Incorrect</span>
-            </li>
-          </ul>
-          <p>Total Score: {{ results.filter(r => r.correct).length }} / 20</p>
+      <div v-if="submissionMessage" class="submission-message">
+        {{ submissionMessage }}
+      </div>
+      <div v-if="results.length > 0" class="results">
+        <h2>Results</h2>
+        <ul>
+          <li v-for="(result, index) in results" :key="index">
+            {{ problems[index].num1 }} {{ problems[index].operation }} {{ problems[index].num2 }} = {{ userAnswers[index] }}
+            <span v-if="result.correct" class="correct">✓ Correct!</span>
+            <span v-else class="incorrect">✗ Incorrect</span>
+          </li>
+        </ul>
+        <p>Total Score: {{ results.filter(r => r.correct).length }} / 20</p>
       </div>
     </div>
   </div>
+</template>
 
 <script>
 import { GoogleGenerativeAI } from "@google/generative-ai";
