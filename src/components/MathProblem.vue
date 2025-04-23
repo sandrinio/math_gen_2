@@ -7,30 +7,44 @@
     </div>
 
     <div v-if="quizStarted">
-      <div class="problem-section">
-        <form @submit.prevent="checkAnswers">
-          <div v-for="(problem, index) in problems" :key="index" class="problem">
-            {{ problem.num1 }} {{ problem.operation }} {{ problem.num2 }} =
-            <input type="number" v-model="userAnswers[index]" placeholder="Your answer" />
+      <form @submit.prevent="checkAnswers">
+        <div class="problem-columns">
+          <div class="problem-section">
+            <h2>Addition Problems</h2>
+            <div v-for="(problem, index) in additionProblems" :key="index" class="problem">
+              {{ problem.num1 }} {{ problem.operation }} {{ problem.num2 }} =
+              <input type="number" v-model="userAnswers[index]" placeholder="Your answer" />              
+            </div>
           </div>
+          <div class="problem-section subtraction-problems">
+            <h2>Subtraction Problems</h2>
+
+
+            <div v-for="(problem, index) in subtractionProblems" :key="index + additionProblems.length" class="problem">
+              {{ problem.num1 }} {{ problem.operation }} {{ problem.num2 }} =
+              <input type="number" v-model="userAnswers[index + additionProblems.length]" placeholder="Your answer" />
+            </div>
+          </div>
+        </div>
           <button type="submit">Submit</button>
-        </form>
       </div>
       <div v-if="submissionMessage" class="submission-message">
         {{ submissionMessage }}
       </div>
       <div v-if="results.length > 0" class="results">
         <h2>Results</h2>
-        <ul>
-          <li v-for="(result, index) in results" :key="index">
-            {{ problems[index].num1 }} {{ problems[index].operation }} {{ problems[index].num2 }} = {{ userAnswers[index] }}
-            <span v-if="result.correct" class="correct">✓ Correct!</span>
+        <ul>        
+          <li v-for="(result, index) in results" :key="index">            
+            <span v-if="index < additionProblems.length">{{ additionProblems[index].num1 }} {{ additionProblems[index].operation }} {{ additionProblems[index].num2 }} = {{ userAnswers[index] }}</span>
+            <span v-else>{{ subtractionProblems[index - additionProblems.length].num1 }} {{ subtractionProblems[index - additionProblems.length].operation }} {{ subtractionProblems[index - additionProblems.length].num2 }} = {{ userAnswers[index] }}</span>
+            <span v-if="result.correct" class="correct">✓ Correct!</span>            
             <span v-else class="incorrect">✗ Incorrect</span>
-          </li>
+          </li>        
         </ul>
         <p>Total Score: {{ results.filter(r => r.correct).length }} / 20</p>
       </div>
     </div>
+  </form>
   </div>
 </template>
 
@@ -39,7 +53,8 @@ export default {
   data() {
     return {
       quizStarted: false,
-      problems: [],
+      additionProblems: [],
+      subtractionProblems: [],
       userAnswers: Array(20).fill(''),
       results: [],
       submissionMessage: '',
@@ -47,58 +62,78 @@ export default {
   },
   methods: {
     async startQuiz() {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('dev') === 'true') {
+        console.log("Dev mode: generating math problems locally");
+      }
       this.quizStarted = true;
       await this.generateProblems();
     },
     async generateProblems() {
-      try {
-        const response = await fetch('/api/generateProblems', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            prompt: `Generate 20 math problems in JSON format. Each problem should include the following fields:
-            - num1: The first number (integer).
-            - num2: The second number (integer).
-            - operation: The operation as a string (+, -, *, or /).
-            - answer: The correct answer to the problem.
+      // Check if the app is in development mode
+      this.additionProblems = [];
+      this.subtractionProblems = [];
+      if (import.meta.env.DEV) {
+        console.log("Dev mode: generating math problems locally");
+        this.problems = this.generateLocalProblems();        
+      } else if (new URLSearchParams(window.location.search).get('dev') === 'true') {
+          console.log("Dev mode: generating math problems locally");
+          this.problems = this.generateLocalProblems();
+      } else {
+      
+        try {
+          const response = await fetch('/api/generateProblems', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
 
-            The response should be a JSON array of 20 objects, each containing the fields num1, num2, operation, and answer. Do not include any additional text or formatting outside the JSON array.`
-          })
-        });
+          console.log("Response status:", response.status);
+          console.log("Response headers:", response.headers);
 
-        console.log("Response status:", response.status);
-        console.log("Response headers:", response.headers);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+          const data = await response.json();
+          if (!data.additionProblems || !data.subtractionProblems) {
+            console.error("Invalid problems format from server:", data);
+            this.additionProblems = [];
+            this.subtractionProblems = [];
+          } else{
+            this.additionProblems = data.additionProblems;
+            this.subtractionProblems = data.subtractionProblems;
+          }
 
-        const text = await response.text();
-        console.log("Response text:", text);
+        } catch (error) {
 
-        if (!text) {
-          throw new Error("Empty response from the server");
-        }
 
-        const data = JSON.parse(text);
-
-        this.problems = data;
-
-        // Ensure we have 20 problems and the format is correct. If not, retry or handle the error.
-        if (!Array.isArray(this.problems) || this.problems.length !== 20 || !this.problems.every(p => typeof p === 'object' && 'num1' in p && 'num2' in p && 'operation' in p && 'answer' in p)) {
-          console.error("Invalid problems format from Gemini:", this.problems);
+          console.error("Error generating problems:", error);
           this.problems = []; // Clear problems to avoid issues.
+          this.quizStarted = false;
         }
-      } catch (error) {
-        console.error("Error generating problems:", error);
-        this.problems = []; // Clear problems to avoid issues.
-        this.quizStarted = false;
       }
     },
+    generateLocalProblems() {
+      const additionProblems = [];
+      const subtractionProblems = [];
+      for (let i = 0; i < 10; i++) {
+        const num1 = Math.floor(Math.random() * 49) + 1;
+        const num2 = Math.floor(Math.random() * 49) + 1;
+        additionProblems.push({ num1, num2, operation: '+', answer: num1 + num2 });
+      }
+      for (let i = 0; i < 10; i++) {
+        const num1 = Math.floor(Math.random() * 49) + 1;
+        const num2 = Math.floor(Math.random() * num1) + 1;
+        subtractionProblems.push({ num1, num2, operation: '-', answer: num1 - num2 });
+      }
+      this.additionProblems = additionProblems;
+      this.subtractionProblems = subtractionProblems;
+    },
+
     checkAnswers() {
-      this.results = this.problems.map((problem, index) => {
+      this.results = [...this.additionProblems, ...this.subtractionProblems].map((problem, index) => {
         const userAnswer = parseInt(this.userAnswers[index]) || 0;
         return { correct: userAnswer === problem.answer };
       });
@@ -109,27 +144,35 @@ export default {
 </script>
 
 <style scoped>
-/* ... (your existing CSS styles) ... */
 
-.greeting {
+
+.math-problem {
+  font-family: 'Arial', sans-serif;
+  max-width: 800px;
+  margin: 20px auto;
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.greeting {  
   text-align: center;
   padding: 20px;
-}
-
-.greeting h1 {
-  font-size: 2.5em;
-  margin-bottom: 10px;
-}
-
-.greeting p {
-  font-size: 1.2em;
   margin-bottom: 20px;
 }
 
-.greeting button {
-  /* Style the button to match your existing submit button */
-  background-color: #4CAF50;
-  border: none;
+.greeting h1 {  
+  margin-bottom: 10px;
+}
+
+.greeting p {  
+  margin-bottom: 20px;
+}
+
+.greeting button, button[type="submit"] {
+  background-color: #4CAF50;  
+  border: none;  
   color: white;
   padding: 15px 32px;
   text-align: center;
@@ -141,7 +184,11 @@ export default {
   border-radius: 5px;
   transition: background-color 0.3s ease;
 }
-
+button[type="submit"] {
+  display: block;
+  margin: 20px auto;  
+}
+ 
 .greeting button:hover {
   background-color: #45a049;
 }
@@ -151,15 +198,31 @@ export default {
   font-size: 1.1em;
   margin-top: 10px;
   color: #333;
+} 
+
+.problem-columns {
+  display: flex;  
+  gap: 20px;
+  flex-wrap: wrap;
 }
-.math-problem {
-  font-family: 'Arial', sans-serif; /* A more playful font */
-  max-width: 600px;
-  margin: 20px auto;
-  padding: 20px;
-  background-color: #f9f9f9; /* Light background */
-  border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+
+.problem-columns .problem-section {  
+  flex-grow: 1;
+  flex-basis: 0;
+}
+
+.subtraction-problems {
+  margin-left: 20px;  
+}
+
+/* Media query for smaller screens */
+@media (max-width: 600px) {
+  .problem-columns { 
+    flex-direction: column;  
+  }
+  .subtraction-problems {
+    margin-left: 0;  
+  }
 }
 
 .problem-section {
@@ -171,7 +234,7 @@ export default {
   color: #333;
   margin-bottom: 10px;
   border-bottom: 2px solid #eee;
-  padding-bottom: 5px;
+  padding-bottom: 10px;
 }
 
 .problem {
@@ -179,6 +242,7 @@ export default {
   margin: 10px 0;
   padding: 10px;
   background-color: #fff;
+  border: 1px solid #ddd;
   border-radius: 5px;
   display: flex;
   align-items: center;
@@ -230,23 +294,8 @@ export default {
   color: red;
   font-weight: bold;
 }
-
-button[type="submit"] {
-  background-color: #4CAF50; /* Green */
-  border: none;
-  color: white;
-  padding: 15px 32px;
-  text-align: center;
-  text-decoration: none;
-  display: inline-block;
-  font-size: 16px;
-  margin: 10px 2px;
-  cursor: pointer;
-  border-radius: 5px;
-  transition: background-color 0.3s ease;
-}
-
 button[type="submit"]:hover {
   background-color: #45a049;
 }
+
 </style>
